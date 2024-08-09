@@ -1,0 +1,807 @@
+---
+title: "Final set"
+author: "Aniqa Tasnim Oishi"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+library(dplyr)
+library(skimr)
+library(ggplot2)
+library(lubridate)
+library(tm)
+library(SnowballC)
+library(wordcloud)
+library(stringr)
+library(knitr)
+library(kableExtra)
+library(RColorBrewer)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r}
+file_path <- "/Users/aniqatasnimoishi/Downloads/UniAdelaide/2024-T2/Research-A/Data/final_data_20-23.csv"
+
+# Read the CSV file into a data frame
+final_data <- read.csv(file_path, fileEncoding = "latin1")
+final_data <- final_data %>% filter(FOI_TEXT != "")
+final_data <- final_data %>% filter(MANUFACTURER_D_NAME != "")
+final_data <- final_data %>% filter(BRAND_NAME != "")
+final_data_clean <- subset(final_data, select = -c(MANUFACTURER_CONTACT_T_NAME, MANUFACTURER_CONTACT_F_NAME, MANUFACTURER_CONTACT_L_NAME, MANUFACTURER_CONTACT_STREET_1, MANUFACTURER_CONTACT_STREET_2, MANUFACTURER_CONTACT_CITY, MANUFACTURER_CONTACT_STATE, MANUFACTURER_CONTACT_ZIP_CODE, MANUFACTURER_CONTACT_ZIP_EXT, MANUFACTURER_CONTACT_COUNTRY, MANUFACTURER_CONTACT_POSTAL, MANUFACTURER_CONTACT_PCITY, MANUFACTURER_CONTACT_PLOCAL, MANUFACTURER_G1_NAME, MANUFACTURER_G1_STREET_1, MANUFACTURER_G1_STREET_2, MANUFACTURER_G1_CITY, MANUFACTURER_G1_STATE_CODE, MANUFACTURER_G1_ZIP_CODE, MANUFACTURER_G1_COUNTRY_CODE, MANUFACTURER_G1_POSTAL_CODE, MANUFACTURER_D_ADDRESS_1, MANUFACTURER_D_ADDRESS_2, MANUFACTURER_D_CITY, MANUFACTURER_D_STATE_CODE, MANUFACTURER_D_ZIP_CODE, MANUFACTURER_D_ZIP_CODE_EXT, MANUFACTURER_D_COUNTRY_CODE, MANUFACTURER_D_POSTAL_CODE, EVENT_KEY, NUMBER_DEVICES_IN_EVENT, NUMBER_PATIENTS_IN_EVENT, MANUFACTURER_CONTACT_EXTENSION, DISTRIBUTOR_NAME, DISTRIBUTOR_ADDRESS_1, DISTRIBUTOR_ADDRESS_2, DISTRIBUTOR_CITY, DISTRIBUTOR_STATE_CODE, DISTRIBUTOR_ZIP_CODE, DISTRIBUTOR_ZIP_CODE_EXT, REPORT_TO_MANUFACTURER, MANUFACTURER_NAME, MANUFACTURER_ADDRESS_1, MANUFACTURER_ADDRESS_2, MANUFACTURER_CITY, MANUFACTURER_STATE_CODE, MANUFACTURER_ZIP_CODE, MANUFACTURER_ZIP_CODE_EXT, MANUFACTURER_COUNTRY_CODE, MANUFACTURER_POSTAL_CODE, EXEMPTION_NUMBER, DEVICE_EVENT_KEY, IMPLANT_FLAG, DATE_REMOVED_FLAG, OTHER_ID_NUMBER, DATE_REPORT_y, EVENT_LOCATION, MANUFACTURER_CONTACT_AREA_CODE, MANUFACTURER_CONTACT_AREA_CODE, MANUFACTURER_CONTACT_EXCHANGE, MANUFACTURER_CONTACT_PHONE_NO, MANUFACTURER_CONTACT_PCOUNTRY, MANUFACTURER_G1_ZIP_CODE_EXT, DATE_RETURNED_TO_MANUFACTURER, HEALTH_PROFESSIONAL, INITIAL_REPORT_TO_FDA, DATE_FACILITY_AWARE, REPORT_DATE, REPORT_TO_FDA, DATE_REPORT_TO_FDA, DATE_REPORT_TO_MANUFACTURER, DATE_MANUFACTURER_RECEIVED, DEVICE_DATE_OF_MANUFACTURE, REMOVAL_CORRECTION_NUMBER, PREVIOUS_USE_CODE, SOURCE_TYPE, REPORTER_COUNTRY_CODE, PMA_PMN_NUM, SUPPL_DATES_FDA_RECEIVED, SUPPL_DATES_MFR_RECEIVED, EXPIRATION_DATE_OF_DEVICE, MODEL_NUMBER, CATALOG_NUMBER, LOT_NUMBER, UDI.PUBLIC, UDI.DI, DATE_ADDED, DATE_CHANGED, DATE_RECEIVED_y, DATE_REPORT_x, DATE_OF_EVENT))
+final_data_clean <- final_data_clean %>% filter(ADVERSE_EVENT_FLAG != "")
+final_data_clean <- final_data_clean %>% filter(PRODUCT_PROBLEM_FLAG != "")
+final_data_clean <- final_data_clean %>%
+  filter(ADVERSE_EVENT_FLAG == "Y")
+final_data_clean <- final_data_clean %>% filter(DEVICE_AGE_TEXT != "")
+final_data_clean <- final_data_clean %>% filter(DEVICE_OPERATOR != "")
+final_data_clean$DATE_RECEIVED_x <- as.Date(final_data_clean$DATE_RECEIVED_x, format = "%m/%d/%Y")
+skim_without_charts(final_data_clean)
+```
+
+```{r}
+unique(final_data_clean$GENERIC_NAME)
+main_category_mapping <- c("BIFURCATED STENT GRAFT" = "Other Stents",
+  "BILIARY STENT SYSTEM FOR BENIGN STRICTURES" = "Other Stents",
+  "FGE CATHETER, BILIARY, DIAGNOSTIC - BILIARY STENT - METAL" = "Other Stents",
+  "FAD STENT, URETERAL" = "Other Stents",
+  "CORONARY DRUG-ELUTING STENT" = "Drug-Eluting Stents (DES)",
+  "STENT, CORONARY, DRUG-ELUTING" = "Drug-Eluting Stents (DES)",
+  "DRUG ELUTING CORONARY STENT DELIVERY SYSTEM" = "Drug-Eluting Stents (DES)", 
+  "STENT, INTRACRANIAL NEUROVASCULAR" = "Other Stents", 
+  "AFX2 BIFURCATED STENT GRAFT" = "Other Stents",
+  "CORONARY STENT DELIVERY SYSTEM" = "Other Stents",
+  "STENT, ENDOVASCULAR GRAFT, AORTIC" = "Other Stents",
+  "STENT, COLONIC, METALIC, EXPANDABLE" = "Other Stents",
+  "NIU STENT, SUPERFICIAL FEMORAL ARTERY, DRUG-ELUTING" = "Drug-Eluting Stents (DES)",      
+  "BIOMIMICS 3D VASCULAR STENT SYSTEM" = "Other Stents",                       
+  "URETERAL STENT" = "Other Stents",                                           
+  "MQR STENT, COLONIC METALLIC EXPANDABLE" = "Other Stents",
+  "SELF EXPANDING PERIPHERAL STENT SYSTEM" = "Other Stents",                    
+  "INTRACRANIAL NEUROVASCULAR STENT" = "Other Stents",                         
+  "VASCULAR STENT" = "Other Stents",                                         
+  "STENT, ILIAC" = "Other Stents",
+  "BARD URETERAL STENT" = "Other Stents",                                     
+  "STENT, SUPERFICIAL FEMORAL ARTERY, DRUG-ELUTING" = "Drug-Eluting Stents (DES)",         
+  "STENT, SUPERFICIAL FEMORAL ARTERY" = "Other Stents",                       
+  "STENTS, DRAINS AND DILATORS FOR THE BILIARY DUCTS" = "Other Stents",       
+  "STENT, ILIAC VEIN" = "Other Stents",                                       
+  "ILIAC COVERED STENT, ARTERIAL" = "Other Stents",                          
+  "BIODEGRADABLE POLYMER DRUG ELUTING CORONARY STENT SYSTEM" = "Drug-Eluting Stents (DES)",
+  "VASCULAR COVERED STENT" = "Other Stents",                               
+  "PERIPHERAL STENT DELIVERY SYSTEM" = "Other Stents",                          
+  "STENT, CAROTID" = "Other Stents",                                         
+  "STENT, URETERAL" = "Other Stents",                                         
+  "FGE STENTS, DRAINS AND DILATORS FOR THE BILIARY DUCTS" = "Other Stents",    
+  "VASCULAR STENT GRAFT" = "Other Stents",                                    
+  "BALLOON EXPANDABLE VASCULAR COVERED STENT" = "Other Stents",              
+  "LIMB STENT GRAFT" = "Other Stents",                                        
+  "STENT CORONARY DELIVERY SYSTEM" = "Other Stents",                          
+  "MUM STENT, METALIC EXPANDABLE, DUODENAL" = "Other Stents",                  
+  "PANCREATIC STENT, COVERED, METALLIC, REMOVABLE" = "Other Stents",          
+  "PIPELINE STENT" = "Other Stents",                                           
+  "MPR STENT, BLADDER, FETAL" = "Other Stents",                              
+  "NIO STENT, ILIAC" = "Other Stents",                                       
+  "STENT, CORONARY" = "Other Stents",                                        
+  "VELA INFRARENAL STENT GRAFT" = "Other Stents",                             
+  "DRUG-ELUTING STENT" = "Drug-Eluting Stents (DES)",                                      
+  "VASCULAR STENT SYSTEM" = "Other Stents",                                  
+  "URETHRAL STENT" = "Other Stents",                                          
+  "VENOUS STENT" = "Other Stents",                                             
+  "ENDOVASCULAR STENT DELIVERY SYSTEM" = "Other Stents",                     
+  "COVERED CORONARY STENT" = "Other Stents",                                   
+  "STENT, ENDOVASCUALR GRAFT, AORTIC" = "Other Stents",                      
+  "BILIARY STENT" = "Other Stents",                                           
+  "COLONIC STENT" = "Other Stents",                                          
+  "STENT, RENAL" = "Other Stents",                                             
+  "VENOVO VENOUS STENT" = "Other Stents",                                     
+  "TRACHEOBRONCHIAL STENT" = "Other Stents",                                   
+  "VASCULAR AND BILIARY STENT" = "Other Stents",                              
+  "NIO / STENT, ILIAC" = "Other Stents",                                     
+  "MULTIPLE PERIPHERAL ARTERY STENT, BARE-METAL" = "Other Stents",             
+  "PYLORIC & DUODENAL STENT" = "Other Stents",                                 
+  "CAROTID STENT" = "Other Stents",
+  "COVERED CORONARY STENT SYSTEM" = "Other Stents",                            
+  "ENDOVASCULAR STENT GRAFT" = "Other Stents",                                
+  "DOUBLE LOOP URETERAL STENT" = "Other Stents",                               
+  "BALLOON EXPANDABLE STENT" = "Other Stents",                               
+  "FLUORO-4¿ COIL SILICONE URETERAL STENT 6CH MULTILENGHT" = "Other Stents",   
+  "BIOMIMICS 3D VASCULAR STENT  SYSTEM" = "Other Stents",                     
+  "AFX2 BIFRUCATED STENT GRAFT" = "Other Stents",                              
+  "UNKNOWN INLAY URETERAL STENT W/ HYDROGLIDE GUIDEWIRE" = "Other Stents",     
+  "SINGLE USE BILIARY STENT" = "Other Stents",                                 
+  "BARE METAL CORONARY STENT" = "Other Stents",                              
+  "DRUG ELUTING STENT" = "Drug-Eluting Stents (DES)",                                      
+  "CORONARY DRUG-ELUTING STENT SYSTEM" = "Drug-Eluting Stents (DES)",                    
+  "VASULAR STENT" = "Other Stents",                                          
+  "INLAY MULTILENGTH URETERAL STENT W GUIDEWIRE" = "Other Stents",          
+  "VIABAHN STENT" = "Other Stents",                                            
+  "STENT,METALLIC,EXPANDABLE,DUODENAL" = "Other Stents",                       
+  "STENT DELIVERY SYSTEM" = "Other Stents",                                    
+  "URETERAL STENTS" = "Other Stents",                                        
+  "INLAY URETERAL STENT" = "Other Stents",                                     
+  "Stent, iliac vein" = "Other Stents",                                       
+  "ESOPHAGEAL STENT" = "Other Stents",                                         
+  "STENT" = "Other Stents",                                                   
+  "VASCULAR COVERED STENT GRAFT" = "Other Stents",                              
+  "BALLOON EXPANDABLE BILARY STENT" = "Other Stents",                         
+  "BIOMIMICS 3D VASCULAR STENT" = "Other Stents",                              
+  "CORONARY DRUG ELUDING STENT" = "Drug-Eluting Stents (DES)",                             
+  "VENOVO STENT" = "Other Stents",                                             
+  "STENT, VASCULAR, INTRACRANIAL" = "Other Stents",                          
+  "BIFURCATED STENT DELIVERY SYSTEM" = "Other Stents",                         
+  "MULTIPLE PERIPHERAL ARTERY STENT, BARE METAL" = "Other Stents",           
+  "BIFURCATED STENT GRAFT DELIVERY SYSTEM" = "Other Stents",                   
+  "ABDOMINAL STENT GRAFT SYSTEM" = "Other Stents",                           
+  "STENT SYSTEM" = "Other Stents",                                              
+  "PROXIMAL EXTENSION STENT GRAFT" = "Other Stents",                          
+  "INTRACRANIAL COIL-ASSIST STENT" = "Other Stents",                           
+  "STENT, ENDOVASCULAR GRAFT, AORTIC," = "Other Stents",                    
+  "BIFURCATED STENT" = "Other Stents",                                          
+  "NIP / STENT, SUPERFICIAL FEMORAL ARTERY" = "Other Stents",                 
+  "PRL /  ILIAC COVERED STENT, ARTERIAL" = "Other Stents",                      
+  "HYBRID STENT GRAFT, THORACIC AORTIC LESION TREATMENT" = "Other Stents",    
+  "Stent, superficial femoral artery, drug-eluting" = "Drug-Eluting Stents (DES)",          
+  "STENT., ENDOVASCULAR GRAFT, AORTIC" = "Other Stents",                      
+  "DESCENDING THORACIC AORTA ENDOVASCULAR STENT - GRAFT" = "Other Stents",      
+  "Stents, drains and dilators for the biliary ducts" = "Other Stents",       
+  "BARE-METAL CORONARY ARTERY STENT" = "Other Stents",                         
+  "BIOMIIMICS 3D VASCULAR STENT SYSTEM" = "Other Stents",
+  "SINGLE USE BILIARY DRAINAGE STENT" = "Other Stents",                         
+  "STENT,ENDOVASCULAR GRAFT, AORTIC" = "Other Stents",                        
+  "URINARY STENT" = "Other Stents",                                            
+  "URINARY DIVERSION STENT" = "Other Stents",                                 
+  "NEPHROURETERAL.STENT SYSTEM" = "Other Stents",                             
+  "STENT, ENDOVASCULAR GRAFT, AORTA" = "Other Stents",                       
+  "STENT, ENDOVASULAR GRAFT, AORTIC" = "Other Stents",                          
+  "STENT, ENDOVASCULAR GRAFT, AORTIC." = "Other Stents",                      
+  "PERIPHERAL STENT GRAFT" = "Other Stents",                                   
+  "POLYMERIC URETERAL STENT" = "Other Stents",                                 
+  "5 FR VASCULAR STENT" = "Other Stents",                                      
+  "URETER STENT" = "Other Stents",                                             
+  "UNKNOWN URETERAL STENT" = "Other Stents",                                   
+  "NIN STENT, RENAL" = "Other Stents",                                       
+  "BALLOON EXPANDABLE BILIARY STENT" = "Other Stents",                          
+  "STENT, ENDOVASCULAR GRAPH, AORTIC" = "Other Stents"
+)
+
+subcategory_mapping <- c("BIFURCATED STENT GRAFT" = "Other Stents",
+  "BILIARY STENT SYSTEM FOR BENIGN STRICTURES" = "Biliary Stent",
+  "FGE CATHETER, BILIARY, DIAGNOSTIC - BILIARY STENT - METAL" = "Biliary Stent",
+  "FAD STENT, URETERAL" = "Urological Stent",
+  "CORONARY DRUG-ELUTING STENT" = "Drug-Eluting Stents (DES)",
+  "STENT, CORONARY, DRUG-ELUTING" = "Drug-Eluting Stents (DES)",
+  "DRUG ELUTING CORONARY STENT DELIVERY SYSTEM" = "Drug-Eluting Stents (DES)", 
+  "STENT, INTRACRANIAL NEUROVASCULAR" = "Intracranial Stent", 
+  "AFX2 BIFURCATED STENT GRAFT" = "Other Stents",
+  "CORONARY STENT DELIVERY SYSTEM" = "Coronary Stent",
+  "STENT, ENDOVASCULAR GRAFT, AORTIC" = "Vascular Stent",
+  "STENT, COLONIC, METALIC, EXPANDABLE" = "Gastrointestinal Stent",
+  "NIU STENT, SUPERFICIAL FEMORAL ARTERY, DRUG-ELUTING" = "Drug-Eluting Stents (DES)",      
+  "BIOMIMICS 3D VASCULAR STENT SYSTEM" = "Vascular Stent",                       
+  "URETERAL STENT" = "Urological Stent",                                           
+  "MQR STENT, COLONIC METALLIC EXPANDABLE" = "Gastrointestinal Stent",
+  "SELF EXPANDING PERIPHERAL STENT SYSTEM" = "Peripheral Stent",                    
+  "INTRACRANIAL NEUROVASCULAR STENT" = "Intracranial Stent",                         
+  "VASCULAR STENT" = "Vascular Stent",                                         
+  "STENT, ILIAC" = "Vascular Stent",
+  "BARD URETERAL STENT" = "Urological Stent",                                     
+  "STENT, SUPERFICIAL FEMORAL ARTERY, DRUG-ELUTING" = "Drug-Eluting Stents (DES)",         
+  "STENT, SUPERFICIAL FEMORAL ARTERY" = "Vascular Stent",                       
+  "STENTS, DRAINS AND DILATORS FOR THE BILIARY DUCTS" = "Biliary Stent",       
+  "STENT, ILIAC VEIN" = "Vascular Stent",                                       
+  "ILIAC COVERED STENT, ARTERIAL" = "Vascular Stent",                          
+  "BIODEGRADABLE POLYMER DRUG ELUTING CORONARY STENT SYSTEM" = "Drug-Eluting Stents (DES)",
+  "VASCULAR COVERED STENT" = "Vascular Stent",                               
+  "PERIPHERAL STENT DELIVERY SYSTEM" = "Peripheral Stent",                          
+  "STENT, CAROTID" = "Vascular Stent",                                         
+  "STENT, URETERAL" = "Urological Stent",                                         
+  "FGE STENTS, DRAINS AND DILATORS FOR THE BILIARY DUCTS" = "Biliary Stent",    
+  "VASCULAR STENT GRAFT" = "Vascular Stent",                                    
+  "BALLOON EXPANDABLE VASCULAR COVERED STENT" = "Vascular Stent",              
+  "LIMB STENT GRAFT" = "Other Stents",                                        
+  "STENT CORONARY DELIVERY SYSTEM" = "Coronary Stent",                          
+  "MUM STENT, METALIC EXPANDABLE, DUODENAL" = "Gastrointestinal Stent",                  
+  "PANCREATIC STENT, COVERED, METALLIC, REMOVABLE" = "Biliary Stent",          
+  "PIPELINE STENT" = "Other Stents",                                           
+  "MPR STENT, BLADDER, FETAL" = "Urological Stent",                              
+  "NIO STENT, ILIAC" = "Vascular Stent",                                       
+  "STENT, CORONARY" = "Coronary Stent",                                        
+  "VELA INFRARENAL STENT GRAFT" = "Urological Stent",                             
+  "DRUG-ELUTING STENT" = "Drug-Eluting Stents (DES)",                                      
+  "VASCULAR STENT SYSTEM" = "Vascular Stent",                                  
+  "URETHRAL STENT" = "Urological Stent",                                          
+  "VENOUS STENT" = "Other Stents",                                             
+  "ENDOVASCULAR STENT DELIVERY SYSTEM" = "Vascular Stent",                     
+  "COVERED CORONARY STENT" = "Coronary Stent",                                   
+  "STENT, ENDOVASCUALR GRAFT, AORTIC" = "Vascular Stent",                      
+  "BILIARY STENT" = "Biliary Stent",                                           
+  "COLONIC STENT" = "Gastrointestinal Stent",                                          
+  "STENT, RENAL" = "Urological Stent",                                             
+  "VENOVO VENOUS STENT" = "Other Stents",                                     
+  "TRACHEOBRONCHIAL STENT" = "Other Stents",                                   
+  "VASCULAR AND BILIARY STENT" = "Biliary Stent",                              
+  "NIO / STENT, ILIAC" = "Vascular Stent",                                     
+  "MULTIPLE PERIPHERAL ARTERY STENT, BARE-METAL" = "Peripheral Stent",             
+  "PYLORIC & DUODENAL STENT" = "Gastrointestinal Stent",                                 
+  "CAROTID STENT" = "Vascular Stent",
+  "COVERED CORONARY STENT SYSTEM" = "Coronary Stent",                            
+  "ENDOVASCULAR STENT GRAFT" = "Vascular Stent",                                
+  "DOUBLE LOOP URETERAL STENT" = "Urological Stent",                               
+  "BALLOON EXPANDABLE STENT" = "Other Stents",                               
+  "FLUORO-4¿ COIL SILICONE URETERAL STENT 6CH MULTILENGHT" = "Urological Stent",   
+  "BIOMIMICS 3D VASCULAR STENT  SYSTEM" = "Vascular Stent",                     
+  "AFX2 BIFRUCATED STENT GRAFT" = "Other Stents",                              
+  "UNKNOWN INLAY URETERAL STENT W/ HYDROGLIDE GUIDEWIRE" = "Urological Stent",     
+  "SINGLE USE BILIARY STENT" = "Biliary Stent",                                 
+  "BARE METAL CORONARY STENT" = "Coronary Stent",                              
+  "DRUG ELUTING STENT" = "Drug-Eluting Stents (DES)",                                      
+  "CORONARY DRUG-ELUTING STENT SYSTEM" = "Drug-Eluting Stents (DES)",                    
+  "VASULAR STENT" = "Vascular Stent",                                          
+  "INLAY MULTILENGTH URETERAL STENT W GUIDEWIRE" = "Urological Stent",          
+  "VIABAHN STENT" = "Other Stents",                                            
+  "STENT,METALLIC,EXPANDABLE,DUODENAL" = "Gastrointestinal Stent",                       
+  "STENT DELIVERY SYSTEM" = "Other Stents",                                    
+  "URETERAL STENTS" = "Urological Stent",                                        
+  "INLAY URETERAL STENT" = "Urological Stent",                                     
+  "Stent, iliac vein" = "Vascular Stent",                                       
+  "ESOPHAGEAL STENT" = "Gastrointestinal Stent",                                         
+  "STENT" = "Other Stents",                                                   
+  "VASCULAR COVERED STENT GRAFT" = "Vascular Stent",                              
+  "BALLOON EXPANDABLE BILARY STENT" = "Biliary Stent",                         
+  "BIOMIMICS 3D VASCULAR STENT" = "Vascular Stent",                              
+  "CORONARY DRUG ELUDING STENT" = "Drug-Eluting Stents (DES)",                             
+  "VENOVO STENT" = "Other Stents",                                             
+  "STENT, VASCULAR, INTRACRANIAL" = "Vascular Stent",                          
+  "BIFURCATED STENT DELIVERY SYSTEM" = "Other Stents",                         
+  "MULTIPLE PERIPHERAL ARTERY STENT, BARE METAL" = "Peripheral Stent",           
+  "BIFURCATED STENT GRAFT DELIVERY SYSTEM" = "Other Stents",                   
+  "ABDOMINAL STENT GRAFT SYSTEM" = "Other Stents",                           
+  "STENT SYSTEM" = "Other Stents",                                              
+  "PROXIMAL EXTENSION STENT GRAFT" = "Other Stents",                          
+  "INTRACRANIAL COIL-ASSIST STENT" = "Intracranial Stent",                           
+  "STENT, ENDOVASCULAR GRAFT, AORTIC," = "Vascular Stent",                    
+  "BIFURCATED STENT" = "Other Stents",                                          
+  "NIP / STENT, SUPERFICIAL FEMORAL ARTERY" = "Vascular Stent",                 
+  "PRL /  ILIAC COVERED STENT, ARTERIAL" = "Vascular Stent",                      
+  "HYBRID STENT GRAFT, THORACIC AORTIC LESION TREATMENT" = "Vascular Stent",    
+  "Stent, superficial femoral artery, drug-eluting" = "Drug-Eluting Stents (DES)",          
+  "STENT., ENDOVASCULAR GRAFT, AORTIC" = "Vascular Stent",                      
+  "DESCENDING THORACIC AORTA ENDOVASCULAR STENT - GRAFT" = "Vascular Stent",      
+  "Stents, drains and dilators for the biliary ducts" = "Biliary Stent",       
+  "BARE-METAL CORONARY ARTERY STENT" = "Coronary Stent",                         
+  "BIOMIIMICS 3D VASCULAR STENT SYSTEM" = "Vascular Stent",
+  "SINGLE USE BILIARY DRAINAGE STENT" = "Biliary Stent",                         
+  "STENT,ENDOVASCULAR GRAFT, AORTIC" = "Vascular Stent",                        
+  "URINARY STENT" = "Urological Stent",                                            
+  "URINARY DIVERSION STENT" = "Urological Stent",                                 
+  "NEPHROURETERAL.STENT SYSTEM" = "Urological Stent",                             
+  "STENT, ENDOVASCULAR GRAFT, AORTA" = "Vascular Stent",                       
+  "STENT, ENDOVASULAR GRAFT, AORTIC" = "Vascular Stent",                          
+  "STENT, ENDOVASCULAR GRAFT, AORTIC." = "Vascular Stent",                      
+  "PERIPHERAL STENT GRAFT" = "Peripheral Stent",                                   
+  "POLYMERIC URETERAL STENT" = "Urological Stent",                                 
+  "5 FR VASCULAR STENT" = "Vascular Stent",                                      
+  "URETER STENT" = "Urological Stent",                                             
+  "UNKNOWN URETERAL STENT" = "Urological Stent",                                   
+  "NIN STENT, RENAL" = "Urological Stent",                                       
+  "BALLOON EXPANDABLE BILIARY STENT" = "Biliary Stent",                          
+  "STENT, ENDOVASCULAR GRAPH, AORTIC" = "Vascular Stent"
+)
+
+final_data_clean$GENERIC_NAME_main <- main_category_mapping[final_data_clean$GENERIC_NAME]
+final_data_clean$GENERIC_NAME_sub <- subcategory_mapping[final_data_clean$GENERIC_NAME]
+skim_without_charts(final_data_clean)
+```
+
+
+```{r}
+final_data_clean[c('MANUFACTURER_LINK_FLAG_', 'ADVERSE_EVENT_FLAG', 'PRODUCT_PROBLEM_FLAG', 'REPROCESSED_AND_REUSED_FLAG', 'REPORTER_OCCUPATION_CODE', 'SINGLE_USE_FLAG', 'REMEDIAL_ACTION', 'EVENT_TYPE', 'TYPE_OF_REPORT', 'SUMMARY_REPORT', 'BRAND_NAME', 'MANUFACTURER_D_NAME', 'DEVICE_OPERATOR', 'DEVICE_AVAILABILITY', 'DEVICE_REPORT_PRODUCT_CODE', 'DEVICE_EVALUATED_BY_MANUFACTUR', 'COMBINATION_PRODUCT_FLAG', 'TEXT_TYPE_CODE', 'GENERIC_NAME_main', 'GENERIC_NAME_sub')] <- lapply(final_data_clean[c('MANUFACTURER_LINK_FLAG_', 'ADVERSE_EVENT_FLAG', 'PRODUCT_PROBLEM_FLAG', 'REPROCESSED_AND_REUSED_FLAG', 'REPORTER_OCCUPATION_CODE', 'SINGLE_USE_FLAG', 'REMEDIAL_ACTION', 'EVENT_TYPE', 'TYPE_OF_REPORT', 'SUMMARY_REPORT', 'BRAND_NAME', 'MANUFACTURER_D_NAME', 'DEVICE_OPERATOR', 'DEVICE_AVAILABILITY', 'DEVICE_REPORT_PRODUCT_CODE', 'DEVICE_EVALUATED_BY_MANUFACTUR', 'COMBINATION_PRODUCT_FLAG', 'TEXT_TYPE_CODE', 'GENERIC_NAME_main', 'GENERIC_NAME_sub')], as.factor)
+
+final_data_clean[c('REPORT_SOURCE_CODE')] <- lapply(final_data_clean[c('REPORT_SOURCE_CODE')], as.factor)
+final_data_clean[c('MDR_REPORT_KEY')] <- lapply(final_data_clean[c('MDR_REPORT_KEY')], as.factor)
+final_data_clean_D <- final_data_clean %>%
+  filter(TEXT_TYPE_CODE == "D")
+final_data_clean_D <- subset(final_data_clean_D, select = -c(REPORTER_OCCUPATION_CODE, SINGLE_USE_FLAG))
+final_data_clean_D <- final_data_clean_D %>% filter(REPROCESSED_AND_REUSED_FLAG != "")
+final_data_clean_D <- subset(final_data_clean_D, select = -c(DEVICE_EVALUATED_BY_MANUFACTUR))
+final_data_clean_D <- final_data_clean_D %>% filter(COMBINATION_PRODUCT_FLAG != "")
+final_data_clean_D <- final_data_clean_D %>% filter(DEVICE_AVAILABILITY != "*")
+final_data_clean_D[c('REPORT_SOURCE_CODE','NOE_SUMMARIZED', 'DEVICE_SEQUENCE_NO', 'MDR_TEXT_KEY', 'PATIENT_SEQUENCE_NUMBER')] <- lapply(final_data_clean_D[c('REPORT_SOURCE_CODE', 'NOE_SUMMARIZED', 'DEVICE_SEQUENCE_NO', 'MDR_TEXT_KEY', 'PATIENT_SEQUENCE_NUMBER')], as.factor)
+final_data_clean_D <- subset(final_data_clean_D, select = -c(GENERIC_NAME, DEVICE_AGE_TEXT))
+final_data_clean_D[c('REPORT_NUMBER')] <- lapply(final_data_clean_D[c('REPORT_NUMBER')], as.factor)
+skim_without_charts(final_data_clean_D)
+```
+
+```{r}
+final_data_clean_D$Year <- format(final_data_clean_D$DATE_RECEIVED_x, "%Y")
+
+# Aggregate count of Adverse_event_flag by Year
+yearly_counts <- final_data_clean_D %>%
+  group_by(Year) %>%
+  summarise(Count = sum(ADVERSE_EVENT_FLAG=="Y"))
+
+# View the aggregated data
+print(yearly_counts)
+ggplot(yearly_counts, aes(x = Year, y = Count, fill = Year)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Year-wise Count of Adverse Events",
+       x = "Year",
+       y = "Count of Adverse Events") +
+  theme_minimal() +
+  scale_fill_manual(values = rainbow(n = length(unique(yearly_counts$Year))))
+```
+
+```{r}
+final_data_clean_unique <- final_data_clean_D %>%
+  distinct(MDR_REPORT_KEY, .keep_all = TRUE)
+skim_without_charts(final_data_clean_unique)
+```
+
+```{r}
+# Aggregate count of Adverse_event_flag by Year
+yearly_counts <- final_data_clean_unique %>%
+  group_by(Year) %>%
+  summarise(Count = sum(ADVERSE_EVENT_FLAG=="Y"))
+
+# View the aggregated data
+print(yearly_counts)
+ggplot(yearly_counts, aes(x = Year, y = Count, fill = Year)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Year-wise Count of Adverse Events",
+       x = "Year",
+       y = "Count of Adverse Events") +
+  theme_minimal() +
+  scale_fill_manual(values = rainbow(n = length(unique(yearly_counts$Year))))
+```
+
+```{r}
+yearly_counts <- final_data_clean_unique %>%
+  group_by(Year, EVENT_TYPE) %>%
+  summarise(Count = n())
+# View the aggregated data
+# Create a named vector for mapping
+event_type_mapping <- c("D" = "Death", "IN" = "Injury", "M" = "Malfunction")
+
+# Add a new column with the renamed event types
+yearly_counts <- yearly_counts %>%
+  mutate(EVENT_TYPE_RENAMED = event_type_mapping[EVENT_TYPE])
+
+# View the aggregated data
+print(yearly_counts)
+
+# Plot using the new column
+ggplot(yearly_counts, aes(x = Year, y = Count, fill = EVENT_TYPE_RENAMED)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Year-wise Count of Adverse Events by Event Type",
+       x = "Year",
+       y = "Count of Adverse Events",
+       fill = "Event Type") +
+  theme_minimal()
+```
+
+```{r}
+yearly_counts <- final_data_clean_unique %>%
+  group_by(Year, GENERIC_NAME_main) %>%
+  summarise(Count = n())
+# View the aggregated data
+print(yearly_counts)
+ggplot(yearly_counts, aes(x = Year, y = Count, fill = GENERIC_NAME_main)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Year-wise Count of Adverse Events by Stent Type",
+       x = "Year",
+       y = "Count of Adverse Events") +
+  theme_minimal()
+```
+
+```{r}
+final_data_clean_unique$YearQuarterShort <- paste(substring(year(final_data_clean_unique$DATE_RECEIVED_x), 3, 4), "Q", quarter(final_data_clean_unique$DATE_RECEIVED_x), sep="-")
+
+# Aggregate count of Adverse_event_flag by YearQuarterShort and generic_name_subcategory
+quarterly_counts <- final_data_clean_unique %>%
+  group_by(YearQuarterShort, GENERIC_NAME_sub) %>%
+  summarise(Count = n())
+
+# Create line graph
+p <- ggplot(quarterly_counts, aes(x = YearQuarterShort, y = Count, color = GENERIC_NAME_sub, group = GENERIC_NAME_sub)) +
+  geom_line() +
+  geom_point() +
+  labs(title = "Quarterly Count of Adverse Events by Stent Sub-type",
+       x = "Year-Quarter",
+       y = "Count of Adverse Events",
+       color = "Generic Name Subcategory") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+# Customize x-axis labels to show last two digits of the year
+p + scale_x_discrete(labels = function(x) gsub("202(\\d)-Q-(\\d)", "\\1-Q-\\2", x))
+```
+
+```{r}
+final_data_clean_unique <- subset(final_data_clean_unique, select = -c(REMEDIAL_ACTION))
+skim_without_charts(final_data_clean_unique)
+# Save the data frame to a CSV file
+write.csv(final_data_clean_unique, file = "final_data_clean_unique.csv", row.names = TRUE)
+write.csv(final_data_clean_D, file = "final_data_clean_D.csv", row.names = TRUE)
+```
+
+
+```{r}
+adverse_events <- list(
+  "Pain/Discomfort" = c('pain', 'painful', 'hurt', 'hurting', 'ache', 'uneasy', 'discomfort'),
+  "Weakness" = c('weak', 'weakness', 'fatigue', 'faintness', 'tired', 'lightheaded', 'dizziness'),
+  "Bleeding" = c('bleed', 'bleeding', 'bled', 'blood loss', 'rupture'),
+  "Infection" = c('infect', 'infected', 'infection', 'sepsis', 'bacterial', 'viral', 'contaminated', 'contamination', 'fungal'),
+  "Device Failure" = c('device fail', 'broken', 'malfunction', 'stent delamination', 'stent leak', 'sent dislodged'),
+  "Fatal Outcome" = c('death', 'died', 'expired', 'passed away', 'fatal outcome', 'mortality'),
+  "Coronary Issues" = c('thrombosis', 'restenosis', 'ISR', 'occlusion', 'in-stent stenosis', 'in-stent restenosis', 'aneurysm', 'clot'),
+  "Heart Issues" = c('clot', 'cardiac arrest', 'heart attack', 'heart failure', 'angina', 'acute coronary syndromes', 'ACS', 'aneurysm'),
+  "Respiratory Issues" = c('shortness of breath', 'out of breath', 'respiratory failure', 'respiratory arrest', 'breathing problem', 'dyspnea', 'lung collapse'),
+  "Digestive Issues" = c('bowel obstruction', 'constipation', 'bowel issue', 'diarrhea', 'vomit', 'vomiting', 'nausea', 'gastrointestinal bleeding', 'colonic obstruction'),
+  "Surgical Issues" = c('positioning', 'surgical site infection', 'readmission', 'complication', 'postoperative complication', 'misplaced', 'misplacement', 'restent', 'restenting', 'internal bleeding', 'shock', 'leakage', 'leak'),
+  "Psychological Issues" = c('distress', 'cognitive impairment', 'cognitive dysfunction', 'cognitive', 'anxiety', 'depression')
+)
+
+# Initialize results data frame
+results <- data.frame(
+  AdverseEvent = character(),
+  TotalOccurrences = integer(),
+  UniqueReports = integer(),
+  PercentageReports = numeric(),
+  stringsAsFactors = FALSE
+)
+
+# Calculate the total number of unique reports
+total_reports <- n_distinct(final_data_clean_unique$MDR_REPORT_KEY)
+
+# Loop through each adverse event and its keywords
+for (event in names(adverse_events)) {
+  keywords <- adverse_events[[event]]
+  keyword_pattern <- paste(keywords, collapse = "|")
+  
+  # Count total occurrences
+  total_occurrences <- sum(str_count(final_data_clean_unique$FOI_TEXT, regex(keyword_pattern, ignore_case = TRUE)))
+  
+  # Count unique reports
+  unique_reports <- n_distinct(final_data_clean_unique$MDR_REPORT_KEY[str_detect(final_data_clean_unique$FOI_TEXT, regex(keyword_pattern, ignore_case = TRUE))])
+  
+  # Calculate the percentage of reports
+  percentage_reports <- (unique_reports / total_reports) * 100
+  
+  # Append results
+  results <- rbind(results, data.frame(
+    AdverseEvent = event,
+    TotalOccurrences = total_occurrences,
+    UniqueReports = unique_reports,
+    PercentageReports = round(percentage_reports, 2)
+  ))
+}
+
+# Display the results in a properly formatted table
+results %>%
+  kable(col.names = c("Adverse Event", "Total Occurrences", "Unique Reports", "Percentage of Reports (%)")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+
+```
+
+```{r}
+# Initialize a data frame for quarterly counts
+quarterly_counts <- data.frame(
+  YearQuarterShort = character(),
+  AdverseEvent = character(),
+  TotalOccurrences = integer(),
+  stringsAsFactors = FALSE
+)
+
+# Loop through each year-quarter and adverse event to count occurrences
+unique_quarters <- unique(final_data_clean_unique$YearQuarterShort)
+
+for (quarter in unique_quarters) {
+  data_quarter <- final_data_clean_unique %>% filter(YearQuarterShort == quarter)
+  
+  for (event in names(adverse_events)) {
+    keywords <- adverse_events[[event]]
+    keyword_pattern <- paste(keywords, collapse = "|")
+    
+    # Count total occurrences for the quarter
+    total_occurrences <- sum(str_count(data_quarter$FOI_TEXT, regex(keyword_pattern, ignore_case = TRUE)))
+    
+    # Append results to the quarterly counts data frame
+    quarterly_counts <- rbind(quarterly_counts, data.frame(
+      YearQuarterShort = quarter,
+      AdverseEvent = event,
+      TotalOccurrences = total_occurrences
+    ))
+  }
+}
+
+# Ensure YearQuarterShort is ordered correctly
+quarterly_counts$YearQuarterShort <- factor(quarterly_counts$YearQuarterShort, levels = unique(sort(quarterly_counts$YearQuarterShort)))
+
+# Sum the total occurrences across all quarters for each adverse event
+total_occurrences <- quarterly_counts %>%
+  group_by(AdverseEvent) %>%
+  summarise(Total = sum(TotalOccurrences)) %>%
+  arrange(desc(Total))
+
+# Get the top 5 adverse events
+top_5_events <- total_occurrences %>% top_n(5, Total) %>% pull(AdverseEvent)
+
+# Separate the data for the top 5 and the remaining events
+quarterly_counts_top5 <- quarterly_counts %>% filter(AdverseEvent %in% top_5_events)
+quarterly_counts_remaining <- quarterly_counts %>% filter(!AdverseEvent %in% top_5_events)
+
+# Calculate total number of reports for each adverse event
+total_reports <- quarterly_counts %>%
+  group_by(AdverseEvent) %>%
+  summarise(TotalReports = sum(TotalOccurrences))
+
+# Merge total_reports with quarterly_counts
+quarterly_counts <- quarterly_counts %>%
+  left_join(total_reports, by = "AdverseEvent") %>%
+  mutate(RelativeFrequency = TotalOccurrences / TotalReports)
+
+# Separate the data for the top 5 and the remaining events with relative frequency
+quarterly_counts_top5_rf <- quarterly_counts %>% filter(AdverseEvent %in% top_5_events)
+quarterly_counts_remaining_rf <- quarterly_counts %>% filter(!AdverseEvent %in% top_5_events)
+
+# Plot the line graph for the top 5 adverse events (Total Mentions)
+plot_top5 <- ggplot(quarterly_counts_top5, aes(x = YearQuarterShort, y = TotalOccurrences, color = AdverseEvent, group = AdverseEvent)) +
+  geom_line() +
+  geom_point() +
+  labs(title = "Total Mentions of Top 5 Adverse Events",
+       x = "Year-Quarter",
+       y = "Total Mentions") +
+  theme_minimal() +
+  theme(legend.position = "right",
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  scale_x_discrete(limits = levels(quarterly_counts$YearQuarterShort))
+
+# Plot the line graph for the remaining adverse events (Total Mentions)
+plot_remaining <- ggplot(quarterly_counts_remaining, aes(x = YearQuarterShort, y = TotalOccurrences, color = AdverseEvent, group = AdverseEvent)) +
+  geom_line() +
+  geom_point() +
+  labs(title = "Total Mentions of Low Occurring Adverse Events",
+       x = "Year-Quarter",
+       y = "Total Mentions") +
+  theme_minimal() +
+  theme(legend.position = "right",
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  scale_x_discrete(limits = levels(quarterly_counts$YearQuarterShort))
+
+# Plot the line graph for the top 5 adverse events (Relative Frequency)
+plot_top5_rf <- ggplot(quarterly_counts_top5_rf, aes(x = YearQuarterShort, y = RelativeFrequency, color = AdverseEvent, group = AdverseEvent)) +
+  geom_line() +
+  geom_point() +
+  labs(title = "Proportion of Top 5 Adverse Events",
+       x = "Year-Quarter",
+       y = "Proportion") +
+  theme_minimal() +
+  theme(legend.position = "right",
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  scale_x_discrete(limits = levels(quarterly_counts$YearQuarterShort))
+
+# Plot the line graph for the remaining adverse events (Relative Frequency)
+plot_remaining_rf <- ggplot(quarterly_counts_remaining_rf, aes(x = YearQuarterShort, y = RelativeFrequency, color = AdverseEvent, group = AdverseEvent)) +
+  geom_line() +
+  geom_point() +
+  labs(title = "Proportion of Low Occurring Adverse Events",
+       x = "Year-Quarter",
+       y = "Proportion") +
+  theme_minimal() +
+  theme(legend.position = "right",
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  scale_x_discrete(limits = levels(quarterly_counts$YearQuarterShort))
+
+# Print the plots
+print(plot_top5)
+print(plot_remaining)
+print(plot_top5_rf)
+print(plot_remaining_rf)
+```
+
+
+```{r}
+# Preprocess the text data function
+preprocess_text <- function(text, custom_stopwords = c()) {
+  text <- tolower(text) # Convert to lower case
+  text <- removePunctuation(text) # Remove punctuation
+  text <- removeNumbers(text) # Remove numbers
+  stop_words <- c(stopwords("en"), custom_stopwords) # Combine default and custom stopwords
+  text <- removeWords(text, stop_words) # Remove stopwords
+  text <- stripWhitespace(text) # Remove extra whitespace
+  return(text)
+}
+
+# Custom stopwords
+custom_stopwords <- c("patient", "patients", "stent", "device", "using", "due", "used", "noted", "unknown", "physician", "xmm", "stenting", "across", "system", "reported", "two", "devices", "stents", "event", "another", "using", "des", "however", "yes", "aaa")
+
+# Apply preprocessing to FOI_TEXT with custom stopwords
+final_data_clean_unique$FOI_TEXT <- preprocess_text(final_data_clean_unique$FOI_TEXT, custom_stopwords)
+
+# Get unique stent sub-types
+stent_sub_types <- unique(final_data_clean_unique$GENERIC_NAME_sub)
+
+graphics.off()
+
+# Create word clouds for each stent sub-type
+for (sub_type in stent_sub_types) {
+  # Filter data for the current sub-type
+  sub_type_data <- final_data_clean_unique %>% filter(GENERIC_NAME_sub == sub_type)
+  
+  # Combine all text for the current sub-type
+  text_corpus <- paste(sub_type_data$FOI_TEXT, collapse = " ")
+  
+  # Create a text corpus
+  corpus <- Corpus(VectorSource(text_corpus))
+  
+  # Generate word cloud
+  wordcloud(corpus, 
+            scale = c(3, 0.5),
+            max.words = 50,
+            random.order = FALSE,
+            colors = brewer.pal(8, "Dark2"))
+  
+  # Add title to the word cloud
+  title(main = paste(sub_type))
+  
+}
+
+graphics.off()
+```
+
+```{r}
+event_stent_counts <- data.frame(
+  AdverseEvent = character(),
+  StentSubType = character(),
+  Count = integer(),
+  stringsAsFactors = FALSE
+)
+
+# Loop through each adverse event and stent subtype to count occurrences
+for (event in names(adverse_events)) {
+  keywords <- adverse_events[[event]]
+  keyword_pattern <- paste(keywords, collapse = "|")
+  
+  for (sub_type in unique(final_data_clean_unique$GENERIC_NAME_sub)) {
+    # Filter data for the current stent subtype
+    sub_type_data <- final_data_clean_unique %>% filter(GENERIC_NAME_sub == sub_type)
+    
+    # Count total occurrences for the adverse event within the stent subtype
+    total_occurrences <- sum(str_count(sub_type_data$FOI_TEXT, regex(keyword_pattern, ignore_case = TRUE)))
+    
+    # Append results to the counts data frame
+    event_stent_counts <- rbind(event_stent_counts, data.frame(
+      AdverseEvent = event,
+      StentSubType = sub_type,
+      Count = total_occurrences
+    ))
+  }
+}
+
+# Plot the stacked bar chart
+ggplot(event_stent_counts, aes(x = AdverseEvent, y = Count, fill = StentSubType)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  labs(title = "Adverse Events by Stent Subtype",
+       x = "Adverse Event",
+       y = "Count",
+       fill = "Stent Subtype") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+```{r}
+event_stent_counts <- data.frame(
+  AdverseEvent = character(),
+  StentSubType = character(),
+  Count = integer(),
+  stringsAsFactors = FALSE
+)
+
+# Loop through each adverse event and stent subtype to count occurrences
+for (event in names(adverse_events)) {
+  keywords <- adverse_events[[event]]
+  keyword_pattern <- paste(keywords, collapse = "|")
+  
+  for (sub_type in unique(final_data_clean_unique$GENERIC_NAME_sub)) {
+    # Filter data for the current stent subtype
+    sub_type_data <- final_data_clean_unique %>% filter(GENERIC_NAME_sub == sub_type)
+    
+    # Count total occurrences for the adverse event within the stent subtype
+    total_occurrences <- sum(str_count(sub_type_data$FOI_TEXT, regex(keyword_pattern, ignore_case = TRUE)))
+    
+    # Append results to the counts data frame
+    event_stent_counts <- rbind(event_stent_counts, data.frame(
+      AdverseEvent = event,
+      StentSubType = sub_type,
+      Count = total_occurrences
+    ))
+  }
+}
+
+# Calculate the total occurrences for each stent subtype
+total_occurrences_by_subtype <- event_stent_counts %>%
+  group_by(StentSubType) %>%
+  summarise(Total = sum(Count))
+
+# Merge total occurrences back into the main data frame
+event_stent_counts <- event_stent_counts %>%
+  left_join(total_occurrences_by_subtype, by = "StentSubType") %>%
+  mutate(Proportion = Count / Total)
+
+# Plot the side-by-side bar chart with normalized values
+ggplot(event_stent_counts, aes(x = AdverseEvent, y = Proportion, fill = StentSubType)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  labs(title = "Proportion of Adverse Events by Stent Subtype",
+       x = "Adverse Event",
+       y = "Proportion",
+       fill = "Stent Subtype") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+table_summary <- event_stent_counts %>%
+  select(AdverseEvent, StentSubType, Count, Proportion) %>%
+  arrange(StentSubType, AdverseEvent)
+
+# Print the table using kable
+kable(table_summary, caption = "Count and Proportion of Adverse Events by Stent Subtype")
+```
+
+```{r}
+event_stent_yearly_counts <- data.frame(
+  Year = integer(),
+  AdverseEvent = character(),
+  StentSubType = character(),
+  Count = integer(),
+  stringsAsFactors = FALSE
+)
+
+# Loop through each adverse event, stent subtype, and year to count occurrences
+for (event in names(adverse_events)) {
+  keywords <- adverse_events[[event]]
+  keyword_pattern <- paste(keywords, collapse = "|")
+  
+  for (sub_type in unique(final_data_clean_unique$GENERIC_NAME_sub)) {
+    for (year in unique(final_data_clean_unique$Year)) {
+      # Filter data for the current stent subtype and year
+      sub_type_year_data <- final_data_clean_unique %>% filter(GENERIC_NAME_sub == sub_type & Year == year)
+      
+      # Count total occurrences for the adverse event within the stent subtype and year
+      total_occurrences <- sum(str_count(sub_type_year_data$FOI_TEXT, regex(keyword_pattern, ignore_case = TRUE)))
+      
+      # Append results to the counts data frame
+      event_stent_yearly_counts <- rbind(event_stent_yearly_counts, data.frame(
+        Year = year,
+        AdverseEvent = event,
+        StentSubType = sub_type,
+        Count = total_occurrences
+      ))
+    }
+  }
+}
+
+# Plot the side-by-side bar chart for yearly distribution
+ggplot(event_stent_yearly_counts, aes(x = interaction(Year, AdverseEvent), y = Count, fill = StentSubType)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  labs(title = "Yearly Distribution of Adverse Events by Stent Subtype",
+       x = "Year and Adverse Event",
+       y = "Count",
+       fill = "Stent Subtype") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
